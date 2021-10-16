@@ -1,0 +1,267 @@
+---
+title: "ahana_gosh_test_data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(gridExtra)
+library(readxl)
+
+```
+
+```{r}
+blood_clots <- read_excel("Labs and Subsequent Revascularization.xlsx")
+summary(blood_clots)
+
+# Separating the TEG column into three numeric columns
+blood_clots <- separate(data = blood_clots, TEG, c(NA,"TEG_MA_Value","TEG_Angle_Value", 
+                                    "TEG_R_time_Value",
+                                    NA, NA), sep = c(":"))
+blood_clots <- separate(data = blood_clots, `TEG_MA_Value`, c("TEG_MA_Value" , NA),
+         sep = "\r")
+blood_clots <- separate(data = blood_clots, `TEG_Angle_Value`, c("TEG_Angle_Value", NA), sep = "\r")
+
+view(blood_clots)
+
+# Changing "n/a" values to NA values
+blood_clots$`D-Dimer` <- ifelse(blood_clots$`D-Dimer` == "n/a" , NA, blood_clots$`D-Dimer`)
+
+blood_clots$Fibrinogen <- ifelse(blood_clots$Fibrinogen == "n/a" , NA,blood_clots$Fibrinogen)
+
+blood_clots$TEG <- ifelse(blood_clots$TEG == "n/a" , NA, blood_clots$TEG)
+
+view(blood_clots)
+
+# Changing character columns to numeric
+blood_clots$`D-Dimer` <- as.numeric(blood_clots$`D-Dimer`)
+blood_clots$Fibrinogen <- as.numeric(blood_clots$Fibrinogen)
+blood_clots$TEG_Angle_Value <- as.numeric(blood_clots$TEG_Angle_Value)
+blood_clots$TEG_MA_Value <- as.numeric(blood_clots$TEG_MA_Value)
+blood_clots$TEG_R_time_Value <- as.numeric(blood_clots$TEG_R_time_Value)
+
+summary(blood_clots)
+view(blood_clots)
+class(blood_clots$`TEG_R_time_Value`)
+```
+
+
+```{r}
+# Investigating correlations between D_Dimer, Fibrogen, and TEG and whether or not the patient
+# had and Revascularizations.
+rename(blood_clots, Subsequent_Revascularization = "Subsequent Revascularization")
+
+# Create a data set that only includes patients that had a subsequent revascularization
+revasc <- blood_clots %>%
+  filter(blood_clots$`Subsequent Revascularization` == "1")
+
+summary(revasc)
+view(revasc)
+
+# Create a data set the only includes patients that didn't have a subsequent revascularization
+
+norevasc <- blood_clots %>%
+  filter(blood_clots$`Subsequent Revascularization` == "0")
+
+summary(norevasc)
+view(norevasc)
+
+```
+
+
+```{r}
+# Now that we have cleaned the data a little, we can make some graphics
+
+# Investigating the different test values compared to whether or not the patient had a 
+# subsequent revascularization
+
+ggplot(data = blood_clots, mapping = aes(x = `D-Dimer`, 
+                                         y = `Subsequent Revascularization`)) +
+  geom_point()
+
+ggplot(data = blood_clots, mapping = aes(x = Fibrinogen, 
+                                         y = `Subsequent Revascularization`)) +
+  geom_point()
+
+ggplot(data = blood_clots, mapping = aes(x = TEG_MA_Value, 
+                                         y = `Subsequent Revascularization`)) +
+  geom_point()
+
+
+
+
+```
+
+
+```{r}
+# Analysis - Attempting a logistic regression model
+
+# attempting a logistic regression to test if different values of tests can predict whether
+# or not a patient had a subsequent revascularization
+
+blood_logit <- glm(`Subsequent Revascularization` ~ Fibrinogen + `D-Dimer` , 
+                   family = "binomial", data = blood_clots)
+
+
+summary(blood_logit)
+plot(blood_logit)
+
+# Conclusion
+
+# It looks like there is not enough data to fit a model that explains the variability of the 
+# data. 
+# It also looks like there is not enough data to conclude which values of the different 
+# tests are more likely to result in a subsequent revascularization.
+# There is also not enough data to conclude if having any one of the three tests will result
+# in a subsequent revascularization. 
+
+```
+
+```{r}
+# Analysis - Summary Statistics
+
+# Calculate the average test score based on whether or not a patient had a Subsequent
+# Revascularization
+
+# Use our revasc data set to calculate average scores for patients that had a Subsequent
+# Revascularization
+DDimerRevascMean <- mean(revasc$`D-Dimer`, na.rm = TRUE)
+FibrinogenRevascMean <- mean(revasc$Fibrinogen, na.rm = TRUE)
+TEGMARevascMean <- mean(revasc$TEG_MA_Value, na.rm = TRUE)
+
+DDimerNorevascMean <- mean(norevasc$`D-Dimer`, na.rm = TRUE)
+FibrinogenNorevascMean <- mean(norevasc$Fibrinogen, na.rm = TRUE)
+TEGMANorevascMean <- mean(norevasc$TEG_MA_Value, na.rm = TRUE)
+
+# Can we do a T-test to se if any of the values are significantly different from each other?
+
+DDimerNorevascMean
+DDimerRevascMean
+
+FibrinogenRevascMean
+FibrinogenNorevascMean
+
+TEGMARevascMean
+TEGMANorevascMean
+
+
+# Create a data frame with the average test scores comparing Revascularization to no
+# Revascularization
+avgTest <- data.frame("D-Dimer" = c(round(DDimerRevascMean, 2),round(DDimerNorevascMean, 2)), 
+                      "TEG_MA" = c(round(TEGMARevascMean, 2),                                                                           round(TEGMANorevascMean, 2)),
+           "Fibrinogen" = c(round(FibrinogenRevascMean, 2), round(FibrinogenNorevascMean, 2)))
+attributes(avgTest)$row.names <- c("Revascularization", "No Revascularization")
+avgTest
+
+
+# It looks like the only test that has different values for whether or not a patient had a 
+# subsequent revascularization was DDimer. 
+
+# However, because of the small sample size, a t-test would not have enough power to make 
+# statistical conclusions.
+
+# Next step: Export a table with the different averages
+jpeg("SummaryTable.jpeg", height=1000, width=2000)
+p<-tableGrob(avgTest)
+grid.arrange(p)
+dev.off()
+
+rm(test.png)
+
+```
+
+```{r}
+# Analysis - Summary Statsitics
+
+# Reading in the second dataset for analysis of blood clot burden and running data
+# cleanup on it from above
+
+blood_clot_burden <- read_excel("Subsequent Revascularization and Clot Burden.xlsx")
+view(blood_clot_burden)
+
+# Separating the TEG column into three numeric columns
+blood_clot_burden <- separate(data = blood_clot_burden, TEG, c(NA,"TEG_MA_Value","TEG_Angle_Value", 
+                                    "TEG_R_time_Value",
+                                    NA, NA), sep = c(":"))
+blood_clot_burden <- separate(data = blood_clot_burden, `TEG_MA_Value`, c("TEG_MA_Value" , NA),
+         sep = "\r")
+blood_clot_burden <- separate(data = blood_clot_burden, `TEG_Angle_Value`, c("TEG_Angle_Value", NA), sep = "\r")
+
+view(blood_clot_burden)
+
+# Changing "n/a" values to NA values
+blood_clot_burden$`D-Dimer` <- ifelse(blood_clot_burden$`D-Dimer` == "n/a" , NA, blood_clot_burden$`D-Dimer`)
+
+blood_clot_burden$Fibrinogen <- ifelse(blood_clot_burden$Fibrinogen == "n/a" , NA,blood_clot_burden$Fibrinogen)
+
+blood_clot_burden$`ALI Rutherford Score` <- ifelse(blood_clot_burden$`ALI Rutherford Score` == "n/a" , NA,  blood_clot_burden$`ALI Rutherford Score`)
+
+view(blood_clot_burden)
+
+# Changing character columns to numeric
+blood_clot_burden$`D-Dimer` <- as.numeric(blood_clot_burden$`D-Dimer`)
+blood_clot_burden$Fibrinogen <- as.numeric(blood_clot_burden$Fibrinogen)
+blood_clot_burden$TEG_Angle_Value <- as.numeric(blood_clot_burden$TEG_Angle_Value)
+blood_clot_burden$TEG_MA_Value <- as.numeric(blood_clot_burden$TEG_MA_Value)
+blood_clot_burden$TEG_R_time_Value <- as.numeric(blood_clot_burden$TEG_R_time_Value)
+
+summary(blood_clot_burden)
+view(blood_clot_burden)
+class(blood_clot_burden$`TEG_R_time_Value`)
+
+
+```
+
+```{r}
+# Investigating the correlation between D dimer levels and ALI Rutherford score and
+# number of vascular beds affected
+
+# Computing the average D dimer score for each level of ALI Rutherford score
+ALI_1 <-blood_clot_burden %>%
+  filter(`ALI Rutherford Score` == "1") 
+D_Dimer_ALI1 <- mean(ALI_1$`D-Dimer`, na.rm = TRUE)
+
+ALI_2a <- blood_clot_burden %>%
+  filter(`ALI Rutherford Score` == "2A")
+D_Dimer_ALI2a <- mean(ALI_2a$`D-Dimer`, na.rm = TRUE)
+
+ALI_2b <- blood_clot_burden %>%
+  filter(`ALI Rutherford Score` == "2B")
+D_Dimer_ALI2b <- mean(ALI_2b$`D-Dimer`, na.rm = TRUE)
+
+ALI_3 <- blood_clot_burden %>%
+  filter(`ALI Rutherford Score` == "3")
+D_Dimer_ALI3 <- mean(ALI_3$`D-Dimer`, na.rm = TRUE)
+
+# Turn the averages into a data frame
+DDimerALIMeans <- data.frame("ALI_Level" = c("1","2a","2b","3"),
+           "D_dimer_Value" = c(D_Dimer_ALI1, D_Dimer_ALI2a, 
+                               D_Dimer_ALI2b, D_Dimer_ALI3))
+DDimerALIMeans
+
+# Export the data frame as a table
+png("DdimerSummaryTable.png", height=1000, width=2000)
+p<-tableGrob(DDimerALIMeans)
+grid.arrange(p)
+dev.off()
+
+
+```
+
+
+```{r}
+
+# Investigate the correlation between D dimer scores and the number of 
+# vascular beds involved
+
+
+
+```
+
+
+
