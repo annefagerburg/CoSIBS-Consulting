@@ -7,3 +7,6 @@ For this project the medical student we worked with asked us to investigate the 
 Before conducting any analysis we had to clean the data. We changed missing values in the data to NA, and changed columns of the data from character type to numeric. We also separated one of the columns of test result data into three columns, to more adequatly reflect the three different values for different parts of the test. 
 #### Summarizing the Data
 We used filtering and visualization to summarize the relationships found in the data between the tests and subsequent revascularization. Ultimately, the data set was too small to make any statistical conclusions, and we opted to summarize the data using tables which we created using filtering and summary statistics. 
+
+##### The data 
+Unfortunatly, the dataset used for this project has not yet been uploaded. 
